@@ -1,0 +1,108 @@
+// This file defines the data contracts (messages) for your Axiom package.
+// Every node's --input and --output refers to a message defined here.
+//
+// Run `axiom create message <Name>` to scaffold a new message below.
+// Run `axiom generate` to compile these definitions into language bindings in gen/.
+//
+// DOCUMENTATION
+//   Comments written directly above a message or field declaration are extracted
+//   automatically at publish time and shown in the Axiom registry as documentation.
+//   Write your descriptions there — no separate doc files needed.
+//
+//   Leading comment  (no blank line before the declaration) → registry description ✓
+//   Detached comment (blank line before the declaration)    → ignored by registry  ✗
+//
+// This file is yours to edit. Axiom only appends new message blocks — it never
+// overwrites or removes content you have written.
+
+syntax = "proto3";
+
+package christiangeorgelucas.json_logic_tools;
+
+option go_package = ".;gen";
+
+// The canonical input envelope for every node in this package: a JSON Logic
+// rule (per jsonlogic.com) and the data it's evaluated against, both encoded
+// as raw JSON text. `data` is optional — omit it (empty string) for a rule
+// that references no data, or for nodes (ExtractVariables, ValidateRule,
+// ListOperators) that only need `logic`. Bounded at evaluation time: logic
+// and data are each capped at 262144 bytes (256 KiB) and 64 levels of JSON
+// nesting; a bound violation returns a structured error, never a crash.
+message JsonLogicRule {
+  // The JSON Logic rule, as JSON text, e.g. {"==":[{"var":"a"},1]}.
+  string logic = 1;
+  // The data the rule is evaluated against, as JSON text, e.g. {"a":1}.
+  // Empty/omitted is treated as {}.
+  string data = 2;
+}
+
+// The shared result envelope for nodes that produce a single JSON-encoded
+// value: Evaluate (the rule's result) and ResolveVariables (the rule with
+// its variables substituted). Exactly one of `result`/`error` is populated.
+message JsonLogicResult {
+  // The output, JSON-encoded as its own string (may be any JSON type:
+  // object, array, string, number, bool, or null — "null" is a valid,
+  // successful result and is distinct from the error case). Empty when
+  // error is set.
+  string result = 1;
+  // Set (non-empty) iff the request failed: malformed JSON, an unsupported
+  // operator, an exceeded safety bound, or an internal evaluation error.
+  // When set, result is always empty.
+  string error = 2;
+}
+
+// The result of extracting every data variable a rule references.
+message JsonLogicVariables {
+  // Sorted, de-duplicated list of variable paths referenced via {"var": ...}
+  // anywhere in the rule (e.g. "a", "a.b", "0" for {"var":0}, ".age" for a
+  // relative reference used inside map/filter/reduce/all/none/some). A
+  // {"var":""} or {"var":[]} reference (meaning "the whole data object") is
+  // not itself listed, since it names no field. A variable name that is
+  // itself computed at evaluation time (e.g. {"var":{"cat":["a","b"]}})
+  // cannot be resolved statically and is omitted from this list, though any
+  // variables referenced *inside* that computation are still reported.
+  repeated string variables = 1;
+  // Set (non-empty) iff the request failed (malformed JSON or an exceeded
+  // safety bound). When set, variables is always empty.
+  string error = 2;
+}
+
+// The result of validating a rule's structure.
+message ValidateRuleResult {
+  // True iff the rule is syntactically valid JSON Logic: valid JSON, and
+  // every operator used (recursively) is one this package supports (see
+  // ListOperators). This does not evaluate the rule or check it against any
+  // data, so a structurally valid rule can still error at Evaluate time
+  // (e.g. a type mismatch surfaced by an operator).
+  bool valid = 1;
+  // Empty when valid; otherwise a human-readable reason (invalid JSON, an
+  // unsupported operator naming the operator, or an exceeded safety bound).
+  string error = 2;
+}
+
+// Request for ListOperators. No fields today; kept as an explicit message
+// (rather than accepting no input) so the node can grow filters later
+// without a breaking change.
+message ListOperatorsRequest {
+}
+
+// One operator this package supports.
+message JsonLogicOperatorInfo {
+  // The operator's JSON Logic key, e.g. "==", "var", "if", "map".
+  string name = 1;
+  // A short, human-readable description of what the operator does.
+  string description = 2;
+  // True for an operator defined by the official jsonlogic.com spec; false
+  // for a library-specific extension beyond the spec (currently
+  // contains_all/contains_any/contains_none) — still pure and deterministic,
+  // but a caller targeting strict cross-implementation portability may want
+  // to avoid relying on it.
+  bool standard = 3;
+}
+
+// The full catalog of operators this package's Evaluate/ResolveVariables
+// nodes support, generated from and cross-checked against the pinned
+// diegoholiveira/jsonlogic v3.10.1 operator registry.
+message JsonLogicOperators {
+  repeated JsonLogicOperatorInfo operators = 1;
+}
