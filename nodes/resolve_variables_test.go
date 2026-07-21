@@ -106,4 +106,35 @@ func TestResolveVariablesErrorPaths(t *testing.T) {
 			t.Fatal("expected a structured error for oversized data")
 		}
 	})
+
+	// Regression test for a CRITICAL finding from independent review: the
+	// vendored library's GetJsonLogicWithSolvedVars does an unrecovered
+	// `rule.(map[string]any)` type assertion on the root value, which
+	// panics — and, unrecovered, crashes the whole process, not just this
+	// request — on a bare literal or array root. ValidateRule's own test
+	// suite confirms these ARE valid JSON Logic rules (a literal evaluates
+	// to itself), so this is a realistic input, not a contrived one: any
+	// caller who validates a rule then resolves it can hit this exact
+	// shape. Every case below must come back as a clean node-level error,
+	// and critically must not panic/crash the test process.
+	for _, tc := range []struct {
+		name  string
+		logic string
+	}{
+		{"bare boolean literal", `true`},
+		{"bare number literal", `42`},
+		{"bare string literal", `"hello"`},
+		{"bare array root", `[1,2,3]`},
+		{"bare null literal", `null`},
+	} {
+		t.Run("root shape rejected cleanly: "+tc.name, func(t *testing.T) {
+			got, err := nodes.ResolveVariables(ctx, ax, &gen.JsonLogicRule{Logic: tc.logic})
+			if err != nil {
+				t.Fatalf("unexpected transport error: %v", err)
+			}
+			if got.Error == "" {
+				t.Fatalf("expected a structured error for a %s root, got result=%q", tc.name, got.Result)
+			}
+		})
+	}
 }

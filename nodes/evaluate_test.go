@@ -127,6 +127,23 @@ func TestEvaluateErrorPaths(t *testing.T) {
 		}
 	})
 
+	// Regression test for a MAJOR finding from independent review: division
+	// (and modulo) by zero produces a non-finite float64 that json.Marshal
+	// cannot encode, which previously surfaced as a raw, Go-internals-flavored
+	// "json: unsupported value: +Inf" error instead of a clean domain message.
+	t.Run("division by zero produces a clean error, not a raw encoding failure", func(t *testing.T) {
+		got, err := nodes.Evaluate(ctx, ax, &gen.JsonLogicRule{Logic: `{"/":[1,0]}`})
+		if err != nil {
+			t.Fatalf("unexpected transport error: %v", err)
+		}
+		if got.Error == "" {
+			t.Fatal("expected a structured error for division by zero")
+		}
+		if strings.Contains(got.Error, "json:") || strings.Contains(got.Error, "unsupported value") {
+			t.Errorf("error leaks raw encoding internals: %q", got.Error)
+		}
+	})
+
 	t.Run("oversized logic", func(t *testing.T) {
 		huge := `{"var":"` + strings.Repeat("a", 300*1024) + `"}`
 		got, err := nodes.Evaluate(ctx, ax, &gen.JsonLogicRule{Logic: huge})

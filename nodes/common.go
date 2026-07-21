@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"time"
 
 	jsonlogic "github.com/diegoholiveira/jsonlogic/v3"
@@ -90,19 +91,33 @@ func decodeJSONField(field, raw string, maxBytes int) (any, error) {
 	return v, nil
 }
 
-// applyWithTimeout runs jsonlogic.ApplyInterface on a goroutine and bounds
-// its wall-clock time. Inputs are already bounded in size and nesting depth
-// by this point, so a real hang would indicate a library-level bug rather
-// than a crafted input; this is a defensive bound, not the primary safety
-// mechanism (that's checkJSONBounds, run beforehand).
-func applyWithTimeout(rule, data any, timeout time.Duration) (any, error) {
+// runWithTimeoutAndRecover runs fn on its own goroutine, bounding its
+// wall-clock time AND converting any panic into a structured error. This is
+// the general safety wrapper for every call into the vendored jsonlogic
+// library: ApplyInterface already recovers its own panics internally, but
+// at least one other entry point (GetJsonLogicWithSolvedVars, used by
+// ResolveVariables) does not — a bare-literal root rule (e.g. "true") hits
+// an unrecovered `rule.(map[string]any)` type assertion deep in the
+// library and panics, which — unrecovered — would crash the whole process,
+// not just the request. Route every library call through this wrapper
+// rather than relying on the library's own (inconsistent) panic handling.
+// Inputs are already bounded in size and nesting depth by checkJSONBounds
+// by the time this runs, so a real timeout would indicate a library-level
+// performance bug rather than a crafted input; the timeout is a defensive
+// bound, not the primary safety mechanism.
+func runWithTimeoutAndRecover(timeout time.Duration, fn func() (any, error)) (any, error) {
 	type result struct {
 		out any
 		err error
 	}
 	ch := make(chan result, 1)
 	go func() {
-		out, err := jsonlogic.ApplyInterface(rule, data)
+		defer func() {
+			if r := recover(); r != nil {
+				ch <- result{nil, fmt.Errorf("internal evaluation error: %v", r)}
+			}
+		}()
+		out, err := fn()
 		ch <- result{out, err}
 	}()
 	select {
@@ -111,4 +126,39 @@ func applyWithTimeout(rule, data any, timeout time.Duration) (any, error) {
 	case <-time.After(timeout):
 		return nil, fmt.Errorf("evaluation exceeded the %s time limit", timeout)
 	}
+}
+
+// applyWithTimeout runs jsonlogic.ApplyInterface with the standard
+// timeout+panic-recovery wrapper.
+func applyWithTimeout(rule, data any, timeout time.Duration) (any, error) {
+	return runWithTimeoutAndRecover(timeout, func() (any, error) {
+		return jsonlogic.ApplyInterface(rule, data)
+	})
+}
+
+// hasNonFiniteFloat reports whether v — a value shaped like
+// jsonlogic.ApplyInterface's output (float64/string/bool/nil/
+// map[string]any/[]any) — contains a NaN or +/-Inf float64 anywhere.
+// json.Marshal cannot encode those, and a handful of arithmetic operators
+// (division/modulo by zero, among others) can produce one from otherwise
+// ordinary input, so callers should check this and return a clear domain
+// error instead of surfacing json.Marshal's generic encoding failure.
+func hasNonFiniteFloat(v any) bool {
+	switch t := v.(type) {
+	case float64:
+		return math.IsNaN(t) || math.IsInf(t, 0)
+	case map[string]any:
+		for _, vv := range t {
+			if hasNonFiniteFloat(vv) {
+				return true
+			}
+		}
+	case []any:
+		for _, vv := range t {
+			if hasNonFiniteFloat(vv) {
+				return true
+			}
+		}
+	}
+	return false
 }

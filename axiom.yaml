@@ -38,10 +38,12 @@ nodes:
       description: >-
         Partially evaluates a rule: returns it with every {"var": ...}
         reference substituted by its value from data, while leaving every
-        operator itself unevaluated — e.g. {"==":[{"var":"a"},true]} with
-        data {"a":"false"} resolves to {"==":["false",true]}. Useful for
-        auditing or debugging exactly what data a rule will see before
-        running Evaluate. Same bounds and error contract as Evaluate.
+        operator itself unevaluated — e.g. {">=":[{"var":"value"},10]} with
+        data {"value":20} resolves to {">=":[20,10]}. Useful for auditing
+        or debugging exactly what data a rule will see before running
+        Evaluate. Requires an object ("{...}") at the rule's root; a bare
+        literal or array root returns a structured error (use Evaluate for
+        those). Same bounds and evaluation time limit as Evaluate.
       input: JsonLogicRule
       output: JsonLogicResult
     - name: ExtractVariables
