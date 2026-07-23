@@ -1,6 +1,6 @@
 # json-logic-tools
 
-Composable [Axiom](https://axiom.co) nodes for evaluating [JSON Logic](https://jsonlogic.com)
+Composable [Axiom](https://axiomide.com) nodes for evaluating [JSON Logic](https://jsonlogic.com)
 rules — portable, JSON-encoded business/decision rules — wrapping the
 MIT-licensed [`github.com/diegoholiveira/jsonlogic/v3`](https://github.com/diegoholiveira/jsonlogic)
 (pinned at v3.10.1).
