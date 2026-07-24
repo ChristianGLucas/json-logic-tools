@@ -1,6 +1,5 @@
 name: christiangeorgelucas/json-logic-tools
-version: 0.1.0
-language: go
+version: 0.1.1language: go
 description: >-
   Composable JSON Logic (jsonlogic.com) rule-evaluation nodes wrapping the
   MIT-licensed github.com/diegoholiveira/jsonlogic/v3 — evaluate a rule

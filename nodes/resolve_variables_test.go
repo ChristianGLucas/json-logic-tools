@@ -96,14 +96,16 @@ func TestResolveVariablesErrorPaths(t *testing.T) {
 		}
 	})
 
-	t.Run("oversized data", func(t *testing.T) {
+	t.Run("large data resolves without a size cap", func(t *testing.T) {
+		// No payload size cap anymore (the platform owns size); large but
+		// well-formed data must resolve cleanly, not be rejected or crash.
 		huge := `{"a":"` + strings.Repeat("x", 300*1024) + `"}`
 		got, err := nodes.ResolveVariables(ctx, ax, &gen.JsonLogicRule{Logic: `{"var":"a"}`, Data: huge})
 		if err != nil {
 			t.Fatalf("unexpected transport error: %v", err)
 		}
-		if got.Error == "" {
-			t.Fatal("expected a structured error for oversized data")
+		if got.Error != "" {
+			t.Fatalf("large data should resolve, got structured error: %s", got.Error)
 		}
 	})
 

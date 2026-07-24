@@ -21,7 +21,7 @@ import (
 // that computation are still walked and reported. `data` is ignored; only
 // `logic` is used. Same size/depth bounds as Evaluate.
 func ExtractVariables(ctx context.Context, ax axiom.Context, input *gen.JsonLogicRule) (*gen.JsonLogicVariables, error) {
-	rule, err := requireJSONField("logic", input.Logic, maxLogicBytes)
+	rule, err := requireJSONField("logic", input.Logic)
 	if err != nil {
 		return &gen.JsonLogicVariables{Error: err.Error()}, nil
 	}

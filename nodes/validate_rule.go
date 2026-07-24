@@ -18,7 +18,7 @@ import (
 // Same size/depth bounds as Evaluate; a bound violation is reported as
 // valid=false with a structured reason, never a crash.
 func ValidateRule(ctx context.Context, ax axiom.Context, input *gen.JsonLogicRule) (*gen.ValidateRuleResult, error) {
-	rule, err := requireJSONField("logic", input.Logic, maxLogicBytes)
+	rule, err := requireJSONField("logic", input.Logic)
 	if err != nil {
 		return &gen.ValidateRuleResult{Valid: false, Error: err.Error()}, nil
 	}

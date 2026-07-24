@@ -23,7 +23,7 @@ func ResolveVariables(ctx context.Context, ax axiom.Context, input *gen.JsonLogi
 	if input.Logic == "" {
 		return &gen.JsonLogicResult{Error: "logic is required"}, nil
 	}
-	if err := checkJSONBounds("logic", []byte(input.Logic), maxLogicBytes); err != nil {
+	if err := checkJSONBounds("logic", []byte(input.Logic)); err != nil {
 		return &gen.JsonLogicResult{Error: err.Error()}, nil
 	}
 
@@ -31,7 +31,7 @@ func ResolveVariables(ctx context.Context, ax axiom.Context, input *gen.JsonLogi
 	if dataRaw == "" {
 		dataRaw = "{}"
 	}
-	if err := checkJSONBounds("data", []byte(dataRaw), maxDataBytes); err != nil {
+	if err := checkJSONBounds("data", []byte(dataRaw)); err != nil {
 		return &gen.JsonLogicResult{Error: err.Error()}, nil
 	}
 

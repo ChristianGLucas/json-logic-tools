@@ -19,11 +19,11 @@ import (
 // operator this package exposes is a pure function of the rule and data
 // (see ListOperators) — no randomness, wall-clock, or external lookups.
 func Evaluate(ctx context.Context, ax axiom.Context, input *gen.JsonLogicRule) (*gen.JsonLogicResult, error) {
-	rule, err := requireJSONField("logic", input.Logic, maxLogicBytes)
+	rule, err := requireJSONField("logic", input.Logic)
 	if err != nil {
 		return &gen.JsonLogicResult{Error: err.Error()}, nil
 	}
-	data, err := optionalJSONField("data", input.Data, maxDataBytes)
+	data, err := optionalJSONField("data", input.Data)
 	if err != nil {
 		return &gen.JsonLogicResult{Error: err.Error()}, nil
 	}

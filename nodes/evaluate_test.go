@@ -144,14 +144,16 @@ func TestEvaluateErrorPaths(t *testing.T) {
 		}
 	})
 
-	t.Run("oversized logic", func(t *testing.T) {
+	t.Run("large logic evaluates without a size cap", func(t *testing.T) {
+		// No payload size cap anymore (the platform owns size); large but
+		// well-formed logic must evaluate cleanly, not be rejected or crash.
 		huge := `{"var":"` + strings.Repeat("a", 300*1024) + `"}`
 		got, err := nodes.Evaluate(ctx, ax, &gen.JsonLogicRule{Logic: huge})
 		if err != nil {
 			t.Fatalf("unexpected transport error: %v", err)
 		}
-		if got.Error == "" {
-			t.Fatal("expected a structured error for oversized logic")
+		if got.Error != "" {
+			t.Fatalf("large logic should evaluate, got structured error: %s", got.Error)
 		}
 	})
 

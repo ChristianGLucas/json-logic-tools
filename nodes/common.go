@@ -11,29 +11,23 @@ import (
 	jsonlogic "github.com/diegoholiveira/jsonlogic/v3"
 )
 
-// Safety bounds applied to every node, BEFORE any recursive parsing or
-// evaluation is attempted. These exist to stop a native, unrecoverable Go
-// stack overflow (not a panic — recover() cannot catch it) from a small but
-// pathologically deep JSON document, e.g. thousands of nested single-element
-// arrays easily fit inside a few KB. See checkJSONBounds.
+// maxJSONDepth stops a native, unrecoverable Go stack overflow (not a panic —
+// recover() cannot catch it) from a pathologically deep JSON document (e.g.
+// thousands of nested single-element arrays in a few KB) before any recursive
+// parse/eval. It is a genuine crash-prevention bound, not a payload size cap
+// (payload size is the platform's concern). See checkJSONBounds.
 const (
-	maxLogicBytes = 256 * 1024 // 256 KiB
-	maxDataBytes  = 256 * 1024 // 256 KiB
-	maxJSONDepth  = 64
-	evalTimeout   = 5 * time.Second
+	maxJSONDepth = 64
+	evalTimeout  = 5 * time.Second
 )
 
 // checkJSONBounds performs a non-recursive, streaming scan of raw JSON bytes,
-// bounding size and nesting depth before any recursive parse. It uses
+// bounding nesting depth before any recursive parse. It uses
 // json.Decoder.Token(), which tokenizes iteratively with a simple counter
 // rather than recursing — so this check itself cannot stack-overflow no
 // matter how deep the (rejected) input claims to be. Must run before
 // json.Unmarshal or any tree walk over the decoded value.
-func checkJSONBounds(field string, raw []byte, maxBytes int) error {
-	if len(raw) > maxBytes {
-		return fmt.Errorf("%s exceeds max size of %d bytes", field, maxBytes)
-	}
-
+func checkJSONBounds(field string, raw []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	depth := 0
 	for {
@@ -63,25 +57,25 @@ func checkJSONBounds(field string, raw []byte, maxBytes int) error {
 // itself) into a generic any — the shape jsonlogic.ApplyInterface expects
 // (map[string]any / []any / float64 / string / bool / nil). An empty field
 // is rejected rather than defaulted, since a rule is never optional.
-func requireJSONField(field, raw string, maxBytes int) (any, error) {
+func requireJSONField(field, raw string) (any, error) {
 	if raw == "" {
 		return nil, fmt.Errorf("%s is required", field)
 	}
-	return decodeJSONField(field, raw, maxBytes)
+	return decodeJSONField(field, raw)
 }
 
 // optionalJSONField is like requireJSONField but treats an empty value as
 // {} — matching the underlying library's own default for absent data.
-func optionalJSONField(field, raw string, maxBytes int) (any, error) {
+func optionalJSONField(field, raw string) (any, error) {
 	if raw == "" {
 		return map[string]any{}, nil
 	}
-	return decodeJSONField(field, raw, maxBytes)
+	return decodeJSONField(field, raw)
 }
 
-func decodeJSONField(field, raw string, maxBytes int) (any, error) {
+func decodeJSONField(field, raw string) (any, error) {
 	b := []byte(raw)
-	if err := checkJSONBounds(field, b, maxBytes); err != nil {
+	if err := checkJSONBounds(field, b); err != nil {
 		return nil, err
 	}
 	var v any
